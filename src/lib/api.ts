@@ -52,6 +52,9 @@ export const api = {
     request<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`),
 
   health: () => request<{ status: string; districts: string[] }>('/api/health'),
+
+  riskProfile: (district: string, villageId: string) =>
+    request<RiskProfile>(`/api/districts/${district}/villages/${encodeURIComponent(villageId)}/risk`),
 }
 
 export interface District {
@@ -75,7 +78,9 @@ export interface VillageRow {
   multi_hazard: number
   risk_category: string
   red_zone_status: string
-  relocation_priority?: number
+  risk_confidence?: number
+  risk_confidence_level?: string
+  missing_hazard_data?: string
 }
 
 export interface SearchResult {
@@ -85,6 +90,37 @@ export interface SearchResult {
   state: string
   red_zone_status: string
   multi_hazard: number
+}
+
+export interface HazardAssessment {
+  hazard_type: string
+  display_name: string
+  hazard_score: number | null
+  risk_level: string
+  confidence: number
+  confidence_level: string
+  factors: Record<string, string>
+  data_sources: string[]
+  missing_data: string[]
+}
+
+export interface RiskProfile {
+  location_id: string
+  location: { name: string; district: string; state: string }
+  overall_risk_score: number | null
+  overall_risk_level: string
+  red_zone_status: string
+  risk_confidence: number
+  risk_confidence_level: string
+  hazards: HazardAssessment[]
+  top_contributors: { hazard_type: string; label: string; score: number; level: string }[]
+  missing_data: string[]
+  assessment_mode: string
+  data_timestamp: string
+  data_sources: string[]
+  method: string
+  model_version: string
+  data_version: string
 }
 
 export const ZONE_COLORS: Record<string, string> = {

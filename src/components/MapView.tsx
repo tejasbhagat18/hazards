@@ -182,7 +182,7 @@ export default function MapView({ district, geojson, villageRows, highlightId, f
       </MapContainer>
 
       <Legend />
-      {selected && <VillageInfoPanel village={selected} onClose={() => setSelected(null)} />}
+      {selected && <VillageInfoPanel village={selected} district={district.key} onClose={() => setSelected(null)} />}
 
       {!district && (
         <div className="absolute inset-0 flex items-center justify-center bg-surface-900/50 z-[300]">

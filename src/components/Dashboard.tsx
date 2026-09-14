@@ -112,15 +112,15 @@ export default function Dashboard({ onLogout }: Props) {
             <ShieldAlert className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white leading-tight">Red Zone Intelligence Platform</h1>
-            <p className="text-[10px] text-slate-400">SIH 2026 · Module 1 — Hazard Intelligence</p>
+            <h1 className="text-sm font-bold text-white leading-tight">Hazard Intelligence Engine</h1>
+            <p className="text-[10px] text-slate-400">SIH 2026 · Engine 1 — Static/Demo Assessment</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[11px] font-medium text-emerald-400">Live Data</span>
+            <span className="text-[11px] font-medium text-emerald-400">Static Assessment</span>
           </div>
           <button
             onClick={() => { clearToken(); onLogout() }}

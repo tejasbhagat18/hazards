@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import ee
-from backend.gee.config import GEE_PROJECT, FOOTPRINTS, ASSET_PREFIX, EXPORT_SCALE
+from backend.gee.config import GEE_PROJECT, FOOTPRINTS, DISTRICT_FOOTPRINTS, ASSET_PREFIX, EXPORT_SCALE
 from backend.gee.pipeline import GeeHazardPipeline
 
 
@@ -90,8 +90,8 @@ def main():
         states = ["Uttarakhand"]
     results = {}
     for state in states:
-        if state.lower() not in [k.lower() for k in FOOTPRINTS]:
-            print(f"Unknown state: {state}. Skipping.")
+        if state.lower() not in [k.lower() for k in FOOTPRINTS] and (args.district or "").lower() not in DISTRICT_FOOTPRINTS:
+            print(f"Unknown state/district: {state} / {args.district}. Skipping.")
             continue
         try:
             result = run_state(state, args.district, args.force, args.export_assets)

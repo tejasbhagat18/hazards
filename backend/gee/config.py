@@ -41,17 +41,37 @@ FOOTPRINTS = {
     },
 }
 
+# District-level entries are required where a state is onboarded district by
+# district. Bounds are WGS84 and are derived from the preprocessed village
+# boundary files, not hand-entered map guesses.
+DISTRICT_FOOTPRINTS = {
+    "central": {"bbox": (77.167901, 28.571167, 77.303197, 28.788141), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "east": {"bbox": (77.269601, 28.583839, 77.342563, 28.657921), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "new_delhi": {"bbox": (77.050629, 28.483932, 77.256066, 28.646095), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "north": {"bbox": (76.961797, 28.684401, 77.224393, 28.883500), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "north_east": {"bbox": (77.216027, 28.670071, 77.298273, 28.786533), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "north_west": {"bbox": (76.941891, 28.656122, 77.185831, 28.818183), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "shahadara": {"bbox": (77.249939, 28.640011, 77.332922, 28.713984), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "south": {"bbox": (77.110778, 28.404668, 77.252639, 28.569243), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "south_east": {"bbox": (77.200160, 28.480652, 77.347570, 28.608668), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "south_west": {"bbox": (76.838892, 28.500777, 77.106151, 28.670189), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+    "west": {"bbox": (76.953800, 28.596217, 77.181193, 28.702051), "state": "Delhi", "hazards": ["flood", "landslide", "cloudburst"], "scale": 60},
+}
+
 
 def _key(state):
     return (state or "").strip().lower().replace(" ", "_")
 
 
-def footprint_for_state(state):
+def footprint_for_state(state, district=None):
     """Case-insensitive lookup of a state footprint.
 
     Falls back to the state boundary GeoJSON (if configured) or to
     Uttarakhand's footprint when the state is unknown.
     """
+    district_key = _key(district or "")
+    if district_key in DISTRICT_FOOTPRINTS:
+        return DISTRICT_FOOTPRINTS[district_key]
     key = _key(state)
     if key in FOOTPRINTS:
         return FOOTPRINTS[key]
@@ -71,8 +91,10 @@ def footprint_for_state(state):
                 "hazards": [],
                 "scale": 30,
             }
-    print(f"  Warning: no footprint for '{state}', defaulting to Uttarakhand")
-    return FOOTPRINTS["uttarakhand"]
+    raise ValueError(
+        f"No footprint is configured for '{state}'. Provide STATE_BOUNDARY_GEOJSON "
+        "or add the area through the documented district-onboarding workflow."
+    )
 
 
 COLLECTIONS = {

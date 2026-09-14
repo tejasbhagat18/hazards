@@ -51,10 +51,10 @@ export default function LoginPage({ onLogin }: Props) {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">
-                Red Zone Intelligence
+                Hazard Intelligence Engine
               </h1>
               <p className="text-sm text-slate-400">
-                Multi-Hazard Relocation Platform · SIH 2026
+                Static/Demo Assessment Mode · SIH 2026
               </p>
             </div>
           </div>

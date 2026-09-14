@@ -1,6 +1,7 @@
 import sys
 import math
 from pathlib import Path
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -12,6 +13,7 @@ from typing import Optional
 import geopandas as gpd
 
 from backend.config.settings import PROCESSED_DIR, GEE_OUTPUT_DIR
+from backend.engine.explain import village_risk_profile
 
 app = FastAPI(title="SIH 2026 - Multi-Hazard Red Zone API", version="1.0.0")
 
@@ -104,7 +106,8 @@ def village_geojson(key: str, authorization: Optional[str] = Header(default=None
     if not geojson.exists():
         raise HTTPException(status_code=404, detail=f"No data for district '{key}'")
     import json as _json
-    return _json.loads(gpd.read_file(geojson).to_json())
+    gdf = gpd.read_file(geojson).drop(columns=["relocation_priority"], errors="ignore")
+    return _json.loads(gdf.to_json())
 
 
 @app.get("/api/districts/{key}/table")
@@ -114,8 +117,12 @@ def village_table(key: str, limit: int = 1000, authorization: Optional[str] = He
     if not csv_file.exists():
         raise HTTPException(status_code=404, detail=f"No data for district '{key}'")
     import pandas as pd
+    if limit < 1 or limit > 10_000:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 10000")
     df = pd.read_csv(csv_file, dtype={"village_id": str})
     df = df.sort_values("multi_hazard", ascending=False).head(limit)
+    # Relocation priority belongs to Engines 2--4, not Hazard Intelligence.
+    df = df.drop(columns=["relocation_priority"], errors="ignore")
     rows = [_json_safe(r) for r in df.to_dict(orient="records")]
     return {"district": key, "rows": rows}
 
@@ -134,7 +141,36 @@ def village_detail(key: str, village_id: str, authorization: Optional[str] = Hea
         raise HTTPException(status_code=404, detail=f"Village '{village_id}' not found")
     row = match.iloc[0]
     props = {k: (None if str(v) in ("nan", "None") else v) for k, v in row.drop("geometry").to_dict().items()}
+    props.pop("relocation_priority", None)
     return {"village": props, "geometry": row["geometry"].__geo_interface__}
+
+
+def _find_village_row(key: str, village_id: str):
+    csv_file = PROCESSED_DIR / f"village_risk_{key}.csv"
+    if not csv_file.exists():
+        raise HTTPException(status_code=404, detail=f"No data for district '{key}'")
+    import pandas as pd
+    df = pd.read_csv(csv_file, dtype={"village_id": str})
+    match = df[df["village_id"].astype(str) == str(village_id)]
+    if match.empty:
+        raise HTTPException(status_code=404, detail=f"Village '{village_id}' not found")
+    row = _json_safe(match.iloc[0].to_dict())
+    row["assessment_generated_at"] = datetime.fromtimestamp(csv_file.stat().st_mtime, timezone.utc).isoformat()
+    return row
+
+
+@app.get("/api/districts/{key}/villages/{village_id}/risk")
+def village_risk_explanation(key: str, village_id: str, authorization: Optional[str] = Header(default=None)):
+    """Explainable, engine-to-engine output for one village assessment."""
+    require_auth(authorization)
+    return village_risk_profile(_find_village_row(key, village_id), key)
+
+
+@app.get("/api/risk/{location_id}")
+def risk_explanation(location_id: str, district: str, authorization: Optional[str] = Header(default=None)):
+    """Location-centric alias for government/integration clients."""
+    require_auth(authorization)
+    return village_risk_profile(_find_village_row(district, location_id), district)
 
 
 @app.get("/api/search")
@@ -151,7 +187,7 @@ def search_villages(q: str = "", limit: int = 50, authorization: Optional[str] =
         name_col = "name" if "name" in gdf.columns else None
         if name_col:
             name_series = gdf[name_col].astype(str)
-            mask = name_series.str.lower().str.contains(q)
+            mask = name_series.str.lower().str.contains(q, regex=False, na=False)
             hits = gdf[mask].head(limit)
             for _, r in hits.iterrows():
                 results.append({

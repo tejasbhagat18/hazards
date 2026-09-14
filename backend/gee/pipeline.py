@@ -23,6 +23,7 @@ from backend.gee.config import (
     COLLECTIONS, footprint_for_state,
 )
 from backend.config.settings import DISTRICTS, ACTIVE_DISTRICT
+from backend.fusion.red_zone import apply_fusion
 
 
 class GeeHazardPipeline:
@@ -37,7 +38,7 @@ class GeeHazardPipeline:
         self.state = state
         self.district = district or ACTIVE_DISTRICT
         self.force = force
-        self.config = footprint_for_state(state)
+        self.config = footprint_for_state(state, self.district)
         self.bbox = self.config["bbox"]
         self.scale = self.config.get("scale", EXPORT_SCALE)
         self.region = ee.Geometry.Rectangle(list(self.bbox))
@@ -393,10 +394,12 @@ class GeeHazardPipeline:
         print(f"{'='*60}")
         dem_arr = self.rasters.get("dem")
         ref = dem_arr if dem_arr is not None else np.zeros((100, 100))
-        if self.config["state"] not in ("Odisha", "Maharashtra"):
+        if "coastal_erosion" not in self.config.get("hazards", []):
             print(f"  {self.config['state']} is not a coastal state. Skipping.")
-            self.rasters["coastal_score"] = np.zeros_like(ref)
-            return np.zeros_like(ref)
+            # Coastal exposure is not applicable inland; exclude it from fusion
+            # rather than treating it as fabricated low-risk evidence.
+            self.rasters["coastal_score"] = np.full_like(ref, np.nan, dtype=float)
+            return self.rasters["coastal_score"]
         try:
             coastline = ee.FeatureCollection(ASSETS.get("coastline", "NGDC/OSD")).filterBounds(self.region)
             coast_json = coastline.getInfo()
@@ -461,14 +464,14 @@ class GeeHazardPipeline:
 
             def _mean(arr):
                 if arr is None:
-                    return 0.0
+                    return np.nan
                 arr = np.asarray(arr)
                 if arr.ndim == 1:
-                    return float(np.nanmean(arr)) if len(arr) else 0.0
+                    return float(np.nanmean(arr)) if len(arr) else np.nan
                 if arr.shape != dem_arr.shape:
-                    return 0.0
+                    return np.nan
                 p = arr[si:ei+1, sj:ej+1]
-                return float(np.nanmean(p)) if p.size else 0.0
+                return float(np.nanmean(p)) if p.size else np.nan
 
             v = {
                 "village_id": row.get("village_id", f"V-{idx:03d}"),
@@ -513,33 +516,15 @@ class GeeHazardPipeline:
         df = self.results
         if df is None:
             raise ValueError("No results. Run step8 first.")
-        weights = HAZARD_WEIGHTS
-        df["multi_hazard"] = (
-            weights["flood"] * df["flood_score"].fillna(0)
-            + weights["landslide"] * df["landslide_score"].fillna(0)
-            + weights["coastal"] * df["coastal_erosion_score"].fillna(0)
-            + weights["cloudburst"] * df["cloudburst_score"].fillna(0)
-        ).clip(0, 1)
-        def category(score):
-            level = sum(score >= t for t in RED_ZONE_THRESHOLDS)
-            return CATEGORY_NAMES[level]
-        df["risk_category"] = df["multi_hazard"].apply(category)
-        df["red_zone_status"] = df["risk_category"].apply(lambda c: RED_ZONE_RULE[c])
-        df["relocation_priority"] = np.clip(
-            (
-                df["multi_hazard"]
-                + df["flood_score"].fillna(0) * 0.2
-                + df["landslide_score"].fillna(0) * 0.2
-                + df["coastal_erosion_score"].fillna(0) * 0.2
-                + df["cloudburst_score"].fillna(0) * 0.2
-            ) / 1.8,
-            0, 1,
-        )
-        df = df.sort_values("relocation_priority", ascending=False)
+        # Fusion normalizes authority-configurable weights over available
+        # evidence. Missing layers lower confidence; they never become zero risk.
+        df = apply_fusion(df, weights=HAZARD_WEIGHTS)
+        df = df.sort_values("multi_hazard", ascending=False, na_position="last")
+        self.results = df
         print(f"  Red Zone distribution:")
         print(f"    {df['red_zone_status'].value_counts().to_string()}")
         print(f"  Multi-Hazard range: {df['multi_hazard'].min():.3f} - {df['multi_hazard'].max():.3f}")
-        print(f"  Relocation Priority range: {df['relocation_priority'].min():.3f} - {df['relocation_priority'].max():.3f}")
+        print(f"  Confidence range: {df['risk_confidence'].min():.3f} - {df['risk_confidence'].max():.3f}")
         return df
 
     def step10_export(self, output_name=None):
@@ -570,7 +555,7 @@ class GeeHazardPipeline:
         print(f"  GeoJSON saved: {geojson_path}")
         for col in ["flood_score", "landslide_score", "cloudburst_score",
                      "coastal_erosion_score", "multi_hazard",
-                     "risk_category", "red_zone_status", "relocation_priority"]:
+                     "risk_category", "red_zone_status", "risk_confidence"]:
             if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
                 raster_path = OUTPUT_DIR / f"{col}_{output_name}.tif"
                 self._vector_to_raster(df, col, raster_path)
