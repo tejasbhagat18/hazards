@@ -117,7 +117,9 @@ def download_gee(bbox, scale=30, project=None, district="raw"):
             continue
         if layer == "flood":
             img = ee.ImageCollection(asset).filterBounds(region).mosaic().select(0)
-            img = img.updateMask(img.gte(1).And(img.lte(5))).unmask(0).toByte()
+            # Keep invalid GFSM classes masked so nodata reads as NaN/UNKNOWN
+            # downstream instead of a fabricated zero-hazard class.
+            img = img.updateMask(img.gte(1).And(img.lte(5)))
         else:
             img = ee.Image(asset)
         url = img.getDownloadURL({"region": region, "scale": res, "crs": "EPSG:4326", "format": "GEO_TIFF"})

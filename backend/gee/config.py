@@ -7,6 +7,10 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 
 GEE_PROJECT = os.getenv("GEE_PROJECT", "")
 
+# Survey-of-India village boundary FeatureCollection id for direct GEE loads.
+# Belongs to the user's own Earth Engine project; no fixed asset id is shipped.
+SOI_VILLAGE_ASSET = os.getenv("GEE_VILLAGE_ASSET", "")
+
 ASSETS = {
     "dem": "USGS/SRTMGL1_003",
     "population": "WorldPop/GP/100m/pop",

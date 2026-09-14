@@ -1,5 +1,6 @@
 import ee
 import json
+import os
 import zipfile
 import numpy as np
 import pandas as pd
@@ -20,7 +21,7 @@ from backend.gee.config import (
     COASTAL_HARD_RISK_M, COASTAL_EROSION_BAND_M,
     OUTPUT_DIR, RAW_DIR, PROCESSED_DIR,
     EXPORT_SCALE, EXPORT_MAX_PIXELS, ASSET_PREFIX,
-    COLLECTIONS, footprint_for_state,
+    COLLECTIONS, footprint_for_state, SOI_VILLAGE_ASSET,
 )
 from backend.config.settings import DISTRICTS, ACTIVE_DISTRICT
 from backend.fusion.red_zone import apply_fusion
@@ -146,9 +147,12 @@ class GeeHazardPipeline:
         return villages
 
     def _load_soi_villages(self):
+        if not SOI_VILLAGE_ASSET:
+            print("  GEE_VILLAGE_ASSET not set; loading local village boundaries")
+            return self._load_local_villages()
         try:
             import ee
-            villages_fc = ee.FeatureCollection("users/sih/village_boundaries")
+            villages_fc = ee.FeatureCollection(SOI_VILLAGE_ASSET)
             region_fc = villages_fc.filterBounds(self.region)
             json_data = region_fc.getInfo()
             features = json_data.get("features", [])
@@ -194,7 +198,7 @@ class GeeHazardPipeline:
         slope = self._compute_slope(dem_path)
         dem_arr = self._raster_to_array(dem_path)
         self.rasters["dem"] = dem_arr
-        self.rasters["slope"] = np.nan_to_num(slope)
+        self.rasters["slope"] = slope
         print(f"  DEM mean elevation: {np.nanmean(dem_arr):.1f} m")
         print(f"  Slope range: {np.nanmin(slope):.1f} - {np.nanmax(slope):.1f} deg")
         return dem_arr
@@ -253,10 +257,9 @@ class GeeHazardPipeline:
             chirps_arr = None
         extreme_rain = None
         if gpm_arr is not None and chirps_arr is not None:
-            extreme_rain = np.maximum(
-                np.nan_to_num((gpm_arr - np.nanmean(gpm_arr)) / (np.nanstd(gpm_arr) + 1e-9)),
-                np.nan_to_num((chirps_arr - np.nanmean(chirps_arr)) / (np.nanstd(chirps_arr) + 1e-9))
-            )
+            gpm_z = (gpm_arr - np.nanmean(gpm_arr)) / (np.nanstd(gpm_arr) + 1e-9)
+            chirps_z = (chirps_arr - np.nanmean(chirps_arr)) / (np.nanstd(chirps_arr) + 1e-9)
+            extreme_rain = np.maximum(gpm_z, chirps_z)
             extreme_rain = np.clip(extreme_rain / 5.0, 0, 1)
             self.rasters["extreme_rain"] = extreme_rain
             print(f"  Extreme rainfall index computed")
@@ -272,31 +275,34 @@ class GeeHazardPipeline:
         if gfsm_path and gfsm_path.exists():
             with rasterio.open(gfsm_path) as src:
                 gfsm_arr = src.read(1).astype(float)
-            gfsm_arr = np.nan_to_num(gfsm_arr)
             flood_score = np.clip((gfsm_arr - 1) / (FLOOD_NORM["gfsm_class"] - 1), 0, 1)
             self.rasters["flood_gfsm_raw"] = gfsm_arr
             print(f"  GFSM flood score computed")
         dem = self.rasters.get("dem")
         slope = self.rasters.get("slope")
         if dem is not None and slope is not None:
-            dem = np.nan_to_num(dem)
-            slope = np.nan_to_num(slope)
             rain = self.rasters.get("gpm_rainfall")
-            rain = np.nan_to_num(rain) if rain is not None else np.zeros_like(dem)
+            rain = rain if rain is not None else np.full_like(dem, np.nan, dtype=float)
             if rain.shape != dem.shape:
-                rain = np.zeros_like(dem)
+                rain = np.full_like(dem, np.nan, dtype=float)
             flood_topo = np.clip(
                 (dem / 2000.0) * 0.3
                 + (slope / 45.0) * 0.4
                 + np.clip(rain / 10.0, 0, 1) * 0.3,
                 0, 1
             )
-            flood_score = flood_score if flood_score is not None else flood_topo
-            flood_score = np.maximum(flood_score, flood_topo)
+            if flood_score is None:
+                flood_score = flood_topo
+            else:
+                # Satellite layer wins where present; topographic estimate only
+                # fills masked gaps. If the gap is also unknown, NaN persists.
+                flood_score = np.where(np.isnan(flood_score), flood_topo, flood_score)
         if flood_score is None:
-            flood_score = np.zeros_like(dem) if dem is not None else np.zeros((100, 100))
-        else:
-            flood_score = np.nan_to_num(flood_score)
+            flood_score = (
+                np.full_like(dem, np.nan, dtype=float)
+                if dem is not None
+                else np.full((100, 100), np.nan, dtype=float)
+            )
         self.rasters["flood_score"] = flood_score
         flood_path = RAW_DIR / f"flood_{self.district}.tif"
         with rasterio.open(flood_path, "w", driver="GTiff",
@@ -317,18 +323,16 @@ class GeeHazardPipeline:
         if ilsm_path and ilsm_path.exists():
             with rasterio.open(ilsm_path) as src:
                 ilsm_arr = src.read(1).astype(float)
-            landslide_score = np.clip(np.nan_to_num(ilsm_arr) / LANDSLIDE_NORM["ilsm_prob"], 0, 1)
+            landslide_score = np.clip(ilsm_arr / LANDSLIDE_NORM["ilsm_prob"], 0, 1)
             self.rasters["ilsm_raw"] = ilsm_arr
             print(f"  ILSM landslide score computed")
         dem = self.rasters.get("dem")
         slope = self.rasters.get("slope")
         if dem is not None and slope is not None:
-            dem = np.nan_to_num(dem)
-            slope = np.nan_to_num(slope)
             rain = self.rasters.get("gpm_rainfall")
-            rain = np.nan_to_num(rain) if rain is not None else np.zeros_like(dem)
+            rain = rain if rain is not None else np.full_like(dem, np.nan, dtype=float)
             if rain.shape != dem.shape:
-                rain = np.zeros_like(dem)
+                rain = np.full_like(dem, np.nan, dtype=float)
             ls_topo = np.clip(
                 (slope / 45.0) * 0.4
                 + (dem / 3000.0) * 0.2
@@ -336,12 +340,15 @@ class GeeHazardPipeline:
                 + 0.05,
                 0, 1
             )
-            landslide_score = landslide_score if landslide_score is not None else ls_topo
-            landslide_score = np.maximum(landslide_score, ls_topo)
+            if landslide_score is None:
+                landslide_score = ls_topo
+            else:
+                # ILSM wins where present; topographic estimate fills masked
+                # gaps. Unknown gaps stay NaN rather than becoming zero hazard.
+                landslide_score = np.where(np.isnan(landslide_score), ls_topo, landslide_score)
         if landslide_score is None:
-            slope = self.rasters.get("slope", np.zeros((100, 100)))
-            landslide_score = np.clip(np.nan_to_num(slope) / 45.0, 0, 1)
-        landslide_score = np.nan_to_num(landslide_score)
+            slope = self.rasters.get("slope", np.full((100, 100), np.nan, dtype=float))
+            landslide_score = np.clip(slope / 45.0, 0, 1)
         self.rasters["landslide_score"] = landslide_score
         ls_path = RAW_DIR / f"landslide_{self.district}.tif"
         with rasterio.open(ls_path, "w", driver="GTiff",
@@ -362,26 +369,27 @@ class GeeHazardPipeline:
         drainage = self.rasters.get("drainage")
         twi = self.rasters.get("twi")
         if dem is not None:
+            # Missing evidence stays NaN (UNKNOWN), never a fabricated zero.
             if slope is None:
-                slope = np.zeros_like(dem)
+                slope = np.full_like(dem, np.nan, dtype=float)
             if extreme_rain is None:
-                extreme_rain = np.zeros_like(dem)
+                extreme_rain = np.full_like(dem, np.nan, dtype=float)
             if drainage is None:
-                drainage = np.zeros_like(dem)
+                drainage = np.full_like(dem, np.nan, dtype=float)
             if twi is None:
-                twi = np.zeros_like(dem)
+                twi = np.full_like(dem, np.nan, dtype=float)
         else:
-            dem = np.zeros((100, 100))
-            slope = np.zeros((100, 100))
-            extreme_rain = np.zeros((100, 100))
-            drainage = np.zeros((100, 100))
-            twi = np.zeros((100, 100))
+            dem = np.full((100, 100), np.nan, dtype=float)
+            slope = np.full((100, 100), np.nan, dtype=float)
+            extreme_rain = np.full((100, 100), np.nan, dtype=float)
+            drainage = np.full((100, 100), np.nan, dtype=float)
+            twi = np.full((100, 100), np.nan, dtype=float)
         cb = (
-            CB_WEIGHTS["dem"] * np.clip(np.nan_to_num(dem) / CB_NORM["dem"], 0, 1)
-            + CB_WEIGHTS["slope"] * np.clip(np.nan_to_num(slope) / CB_NORM["slope"], 0, 1)
-            + CB_WEIGHTS["drainage"] * np.clip(np.nan_to_num(drainage) / CB_NORM["drainage"], 0, 1)
-            + CB_WEIGHTS["twi"] * np.clip(np.nan_to_num(twi) / CB_NORM["twi"], 0, 1)
-            + CB_WEIGHTS["extreme_rain"] * np.clip(np.nan_to_num(extreme_rain) / CB_NORM["extreme_rain"], 0, 1)
+            CB_WEIGHTS["dem"] * np.clip(dem / CB_NORM["dem"], 0, 1)
+            + CB_WEIGHTS["slope"] * np.clip(slope / CB_NORM["slope"], 0, 1)
+            + CB_WEIGHTS["drainage"] * np.clip(drainage / CB_NORM["drainage"], 0, 1)
+            + CB_WEIGHTS["twi"] * np.clip(twi / CB_NORM["twi"], 0, 1)
+            + CB_WEIGHTS["extreme_rain"] * np.clip(extreme_rain / CB_NORM["extreme_rain"], 0, 1)
         )
         cb = np.clip(cb, 0, 1)
         self.rasters["cloudburst_score"] = cb
@@ -579,7 +587,7 @@ class GeeHazardPipeline:
         width = max(1, int((bounds[2] - bounds[0]) / resolution))
         height = max(1, int((bounds[3] - bounds[1]) / resolution))
         transform = from_origin(bounds[0], bounds[3], resolution, resolution)
-        arr = np.zeros((height, width), dtype="float32")
+        arr = np.full((height, width), np.nan, dtype="float32")
         for idx, row in gdf.iterrows():
             geom = row["geometry"]
             env = geom.envelope
@@ -618,4 +626,8 @@ class GeeHazardPipeline:
     @staticmethod
     def _raster_to_array(path):
         with rasterio.open(path) as src:
-            return src.read(1).astype(float)
+            arr = src.read(1).astype(float)
+            nodata = src.nodata
+            if nodata is not None:
+                arr = np.where(arr == nodata, np.nan, arr)
+            return arr

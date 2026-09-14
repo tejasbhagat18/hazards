@@ -97,6 +97,7 @@ GEE_PROJECT=                # your registered Earth Engine project id
 GEE_CREDENTIALS=            # path to service account JSON (optional)
 GEE_ASSET_FLOOD_GFSM=       # flood susceptibility ImageCollection id
 GEE_ASSET_LANDSLIDE_ILSM=   # landslide susceptibility Image id
+GEE_VILLAGE_ASSET=          # village boundaries FeatureCollection id (optional; falls back to local GeoJSON)
 USE_GEE=false               # set to true to use GEE in run_pipeline.py
 SIH_DISTRICT=chamoli
 GEE_ASSET_PREFIX=           # e.g. projects/<your-project>/assets/sih
