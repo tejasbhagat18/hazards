@@ -1,0 +1,12 @@
+numpy
+pandas
+geopandas
+rasterio
+shapely
+scikit-learn
+joblib
+python-dotenv
+requests
+earthengine-api
+fiona
+pyproj
