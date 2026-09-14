@@ -78,22 +78,28 @@ The pipeline runs 10 steps:
 
 ### GEE Assets Used
 
-- **DEM**: `projects/srtm-prod/srtm90_v4` (SRTM 30m)
-- **Flood**: `projects/floodsus/assets/fsm_ei5` (GFSM)
-- **Landslide**: `projects/ee-nirdeshsharmanith1/assets/ILSM_probability`
-- **Rainfall**: `NASA/GPM_L3/GPM_3IMERGDL_V07`, `UCSB-CHG/CHIRPS/DAILY`
+Public datasets (no personal project ties):
+
+- **DEM**: `USGS/SRTMGL1_003` (SRTM 30m)
+- **Rainfall**: `NASA/GPM_L3/IMERG_MONTHLY_V07`, `UCSB-CHG/CHIRPS/DAILY`
 - **Population**: `WorldPop/GP/100m/pop`
 - **Land Cover**: `ESA/WorldCover/v100`
-- **Coastline**: `NGDC/OSD`
+- **Coastline**: `NGDC/OSD` (local `coastline.geojson` fallback)
+
+The flood and landslide susceptibility layers are user-provided. Point the
+environment variables below at the image ids you host or subscribe to in Earth
+Engine (no hard-coded defaults are shipped).
 
 ### Environment Variables
 
 ```env
-GEE_PROJECT=tejas-470510
-GEE_CREDENTIALS=          # path to service account JSON (optional)
-USE_GEE=false             # set to true to use GEE in run_pipeline.py
+GEE_PROJECT=                # your registered Earth Engine project id
+GEE_CREDENTIALS=            # path to service account JSON (optional)
+GEE_ASSET_FLOOD_GFSM=       # flood susceptibility ImageCollection id
+GEE_ASSET_LANDSLIDE_ILSM=   # landslide susceptibility Image id
+USE_GEE=false               # set to true to use GEE in run_pipeline.py
 SIH_DISTRICT=chamoli
-GEE_ASSET_PREFIX=projects/tejas-470510/assets/sih
+GEE_ASSET_PREFIX=           # e.g. projects/<your-project>/assets/sih
 ```
 
 ### Register GEE Assets

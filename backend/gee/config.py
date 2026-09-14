@@ -5,7 +5,7 @@ import geopandas as gpd
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
-GEE_PROJECT = os.getenv("GEE_PROJECT", "tejas-470510")
+GEE_PROJECT = os.getenv("GEE_PROJECT", "")
 
 ASSETS = {
     "dem": "USGS/SRTMGL1_003",
@@ -14,8 +14,8 @@ ASSETS = {
     "chirps": "UCSB-CHG/CHIRPS/DAILY",
     "esa_worldcover": "ESA/WorldCover/v100",
     "hydrosheds": "WWF/HydroSHEDS/03VFDEM",
-    "flood_gfsm": "projects/floodsus/assets/fsm_ei5",
-    "landslide_ilsm": "projects/ee-nirdeshsharmanith1/assets/ILSM_probability",
+    "flood_gfsm": os.getenv("GEE_ASSET_FLOOD_GFSM", ""),
+    "landslide_ilsm": os.getenv("GEE_ASSET_LANDSLIDE_ILSM", ""),
     "coastline": "NGDC/OSD",
     "imd_rainfall": "IMD/GRIDALL/MRC_DAILY",
 }
@@ -97,10 +97,7 @@ def footprint_for_state(state, district=None):
     )
 
 
-COLLECTIONS = {
-    "UCSB-CHG/CHIRPS/DAILY",
-    "projects/floodsus/assets/fsm_ei5",
-}
+COLLECTIONS = {ASSETS["chirps"]} | {ASSETS[k] for k in ("flood_gfsm",) if ASSETS[k]}
 
 HAZARD_WEIGHTS = {
     "flood": 0.35,
@@ -130,4 +127,4 @@ EXPORT_MAX_PIXELS = 1e8
 
 VOLUME_EXPORT_BATCH_SIZE = 5
 
-ASSET_PREFIX = "projects/tejas-470510/assets/sih"
+ASSET_PREFIX = os.getenv("GEE_ASSET_PREFIX", "")

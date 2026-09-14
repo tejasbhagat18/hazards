@@ -54,8 +54,8 @@ Local files used in this project:
 
 | Hazard | Dataset name | GEE asset ID | What it gives us |
 |---|---|---|---|
-| Flood | GFSM (Global Flood Susceptibility Map) | `projects/floodsus/assets/fsm_ei5` | Global flood-susceptibility class (1–5) per pixel — **how flood-prone** a location is |
-| Landslide | ILSM (Integrated Landslide Susceptibility Model) | `projects/ee-nirdeshsharmanith1/assets/ILSM_probability` | Global landslide **probability (0–1)** per pixel |
+| Flood | GFSM (Global Flood Susceptibility Map) | `GEE_ASSET_FLOOD_GFSM` (user-provided image collection id) | Global flood-susceptibility class (1–5) per pixel — **how flood-prone** a location is |
+| Landslide | ILSM (Integrated Landslide Susceptibility Model) | `GEE_ASSET_LANDSLIDE_ILSM` (user-provided image id) | Global landslide **probability (0–1)** per pixel |
 | Terrain (all) | SRTM 30 m DEM | `USGS/SRTMGL1_003` | Elevation → used for slope, flood/landslide/cloudburst |
 | Rainfall | GPM IMERG monthly | `NASA/GPM_L3/IMERG_MONTHLY_V07` | Mean rainfall mm/hr |
 | Rainfall | CHIRPS daily (2023–2025 mean) | `UCSB-CHG/CHIRPS/DAILY` | Mean rainfall mm/day → extreme-rainfall index |
@@ -181,8 +181,8 @@ ROC-AUC, stratified 75/25 split):
 | 1 | Village boundary load (SoI/LGD shapefile) | local .shp → GeoJSON |
 | 2 | DEM + slope (60 m grid) | USGS/SRTMGL1_003 |
 | 3 | Rainfall (GPM + CHIRPS mean, 2020–2025) | IMERG_MONTHLY_V07 + CHIRPS/DAILY |
-| 4 | Flood risk | projects/floodsus GFSM |
-| 5 | Landslide risk | ee-nirdeshsharmanith1 ILSM |
+| 4 | Flood risk | `GEE_ASSET_FLOOD_GFSM` (user-provided) |
+| 5 | Landslide risk | `GEE_ASSET_LANDSLIDE_ILSM` (user-provided) |
 | 6 | Cloudburst risk (DEM+slope+drainage+TWI+rain) | HydroSHEDS etc. |
 | 7 | Coastal erosion (distance to coastline) | local coastline.geojson (NGDC/OSD fallback) |
 | 8 | Village-wise aggregation (zonal mean) | — |
@@ -196,7 +196,7 @@ ROC-AUC, stratified 75/25 split):
 Because some GEE layers are too large for the API's 50 MB in-line download, the heavy
 layers were exported via the **Earth Engine Code Editor** (browser) to Google Drive:
 
-1. Open https://code.earthengine.google.com → login → select project `tejas-470510`.
+1. Open https://code.earthengine.google.com → login → select your registered project (set it as `GEE_PROJECT`).
 2. Run an export script (see `gee/run_gee.py` / manual script below) that creates Tasks for:
    - CHIRPS rainfall (2023–2025 mean), GFSM flood, ILSM landslide — for **both** districts at **60 m**, EPSG:4326.
 3. Each Task runs in the background (1–5 min), then files land in Google Drive → `sih_gee/`.
@@ -234,7 +234,7 @@ when a layer exceeds Earth Engine's 50 MB response cap).
 
 ```
 backend/
-  config/            settings, .env (GEE project tejas-470510)
+  config/            settings, .env (GEE project id configured by the user)
   hazards/           the 4 scorers + zonal-statistics base
   gee/               pipeline.py (10 steps), run_gee.py, config.py
   fusion/            red_zone.py (AHP fusion + red zone rules)

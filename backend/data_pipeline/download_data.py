@@ -1,5 +1,6 @@
 import argparse
 import math
+import os
 import shutil
 import sys
 import urllib.request
@@ -16,8 +17,8 @@ from rasterio.merge import merge as rio_merge
 from backend.config import settings
 from backend.config.settings import RAW_DIR
 
-GFSM_ASSET = "projects/floodsus/assets/fsm_ei5"
-ILSM_ASSET = "projects/ee-nirdeshsharmanith1/assets/ILSM_probability"
+GFSM_ASSET = os.getenv("GEE_ASSET_FLOOD_GFSM", "") or None
+ILSM_ASSET = os.getenv("GEE_ASSET_LANDSLIDE_ILSM", "") or None
 COAST_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_coastline.geojson"
 DEM_URL = "https://copernicus-dem-30m.s3.amazonaws.com/{tile}/{tile}.tif"
 
@@ -107,10 +108,13 @@ def download_gee(bbox, scale=30, project=None, district="raw"):
                   "  or rerun with: --project PROJECT_ID")
             raise SystemExit(2)
         ee.Initialize(project=project)
-    from os import environ
-    project = project or environ.get("GEE_PROJECT")
+    project = project or os.environ.get("GEE_PROJECT")
     region = ee.Geometry.Rectangle(list(bbox))
     for layer, asset, res in [("flood", GFSM_ASSET, scale), ("landslide", ILSM_ASSET, 100)]:
+        if not asset:
+            env_name = "GEE_ASSET_FLOOD_GFSM" if layer == "flood" else "GEE_ASSET_LANDSLIDE_ILSM"
+            print(f"skip {layer}: set {env_name} to the Earth Engine asset id")
+            continue
         if layer == "flood":
             img = ee.ImageCollection(asset).filterBounds(region).mosaic().select(0)
             img = img.updateMask(img.gte(1).And(img.lte(5))).unmask(0).toByte()

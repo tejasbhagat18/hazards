@@ -8,9 +8,10 @@ extend to more states.
 
 ## Step 0 — Prerequisites
 
-- District-level village boundaries come from `C:\Users\ROHAN\Downloads\indian_village_boundries\`
-  (27 state shapefiles already there). If your state is missing, download its
-  Survey-of-India village shapefile and place it in that folder.
+- District-level village boundaries come from `VILLAGE_SHP_DIR` — by default
+  `<your home>\Downloads\indian_village_boundries\` (or point the env var at a
+  custom folder). If your state is missing, download its Survey-of-India village
+  shapefile and place it in that folder.
 - Use the district **LGD code** / exact district spelling as it appears in the
   shapefile's `District` column (ALL CAPS).
 
@@ -38,9 +39,10 @@ If you get an error listing "Available: [...]", use one of those district names.
 ## Step 2 — Export the hazard rasters from Google Earth Engine
 
 Open [Google Earth Engine Code Editor](https://code.earthengine.google.com), make
-sure the project is `tejas-470510`, then paste and run the script below. It creates
-Tasks that download, for your district, the 3 heavy layers (CHIRPS rainfall, GFSM
-flood, ILSM landslide) that are too big for the normal API path.
+sure the project is your own registered project id (`GEE_PROJECT`), then paste and
+run the script below. It creates Tasks that download, for your district, the 3
+heavy layers (CHIRPS rainfall, GFSM flood, ILSM landslide) that are too big for
+the normal API path.
 
 ```javascript
 // SIH 2026 - Export hazard layers for an INDIVIDUAL state/district
@@ -55,13 +57,13 @@ var chirps = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
 Export.image.toDrive({image: chirps, description: 'chirps_rainfall_' + DISTRICT,
   folder: 'sih_gee', scale: 60, crs: 'EPSG:4326', region: REGION, maxPixels: 1e9});
 
-// GFSM flood susceptibility
-var gfsm = ee.ImageCollection('projects/floodsus/assets/fsm_ei5').mosaic().clip(REGION);
+// GFSM flood susceptibility (set GEE_ASSET_FLOOD_GFSM to your hosted version)
+var gfsm = ee.ImageCollection('GEE_ASSET_FLOOD_GFSM | your flood susceptibility image collection id').mosaic().clip(REGION);
 Export.image.toDrive({image: gfsm, description: 'flood_gfsm_' + DISTRICT,
   folder: 'sih_gee', scale: 60, crs: 'EPSG:4326', region: REGION, maxPixels: 1e9});
 
-// ILSM landslide probability
-var ilsm = ee.Image('projects/ee-nirdeshsharmanith1/assets/ILSM_probability').clip(REGION);
+// ILSM landslide probability (set GEE_ASSET_LANDSLIDE_ILSM to your hosted version)
+var ilsm = ee.Image('GEE_ASSET_LANDSLIDE_ILSM | your landslide probability image id').clip(REGION);
 Export.image.toDrive({image: ilsm, description: 'ilsm_' + DISTRICT,
   folder: 'sih_gee', scale: 60, crs: 'EPSG:4326', region: REGION, maxPixels: 1e9});
 ```

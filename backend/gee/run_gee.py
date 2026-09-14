@@ -8,7 +8,7 @@ Usage:
     python backend/gee/run_gee.py --state Maharashtra --district pune --force
 
 Environment:
-    GEE_PROJECT   - Earth Engine project ID (default: tejas-470510)
+    GEE_PROJECT   - Earth Engine project ID (required; or pass --project)
     GEE_CREDENTIALS - Path to service account JSON (optional)
 """
 
@@ -34,8 +34,8 @@ def parse_args():
                    help="Run all demo states (Uttarakhand + Odisha)")
     p.add_argument("--force", action="store_true",
                    help="Force re-download of all GEE assets")
-    p.add_argument("--project", default=GEE_PROJECT,
-                   help=f"GEE project ID (default: {GEE_PROJECT})")
+    p.add_argument("--project", default=None,
+                   help="GEE project ID (defaults to GEE_PROJECT env var)")
     p.add_argument("--credentials", default=None,
                    help="Path to GEE service account JSON")
     p.add_argument("--export-assets", action="store_true",
@@ -44,15 +44,22 @@ def parse_args():
 
 
 def init_ee(project, credentials):
+    project = project or GEE_PROJECT or None
     if credentials and os.path.exists(credentials):
         ee.Initialize(credentials=credentials)
     else:
         try:
-            ee.Initialize(project=project)
+            if project:
+                ee.Initialize(project=project)
+            else:
+                ee.Initialize()
         except Exception:
             ee.Authenticate()
-            ee.Initialize(project=project)
-    print(f"Earth Engine initialized with project: {project}")
+            if project:
+                ee.Initialize(project=project)
+            else:
+                ee.Initialize()
+    print(f"Earth Engine initialized with project: {project or '(default)'}")
 
 
 def run_state(state, district, force, export_assets=False):

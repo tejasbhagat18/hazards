@@ -13,8 +13,8 @@ from backend.fusion.red_zone import METHODOLOGY, MODEL_VERSION, assessment_confi
 HAZARDS = (
     ("flood", "flood_score", "Flood susceptibility", ["GFSM flood susceptibility layer"]),
     ("landslide", "landslide_score", "Landslide susceptibility", ["ILSM landslide susceptibility layer", "SRTM terrain"]),
-    ("extreme_rainfall", "cloudburst_score", "Extreme rainfall / cloudburst risk indicator", ["CHIRPS historical rainfall", "GPM IMERG monthly rainfall", "SRTM terrain", "HydroSHEDS drainage"]),
-    ("coastal_erosion_exposure", "coastal_erosion_score", "Coastal erosion exposure", ["Coastline proximity (screening indicator)"]),
+    ("extreme_rainfall", "cloudburst_score", "Extreme Rainfall / Cloudburst Risk Indicator", ["CHIRPS historical rainfall", "GPM IMERG monthly rainfall", "SRTM terrain", "HydroSHEDS drainage"]),
+    ("coastal_erosion_exposure", "coastal_erosion_score", "Coastal Erosion Exposure Indicator", ["Coastline proximity (screening indicator)"]),
 )
 
 

@@ -12,8 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-os.environ.setdefault("GEE_PROJECT", "tejas-470510")
-os.environ["USE_GEE"] = "true"
+os.environ.setdefault("USE_GEE", "true")
 
 import ee
 from backend.gee.config import GEE_PROJECT, FOOTPRINTS
@@ -23,11 +22,11 @@ from backend.gee.pipeline import GeeHazardPipeline
 def quickstart(state="Uttarakhand", district=None, force=False):
     print("=" * 60)
     print("SIH 2026 Module 1: Quick Start")
-    print(f"State: {state} | GEE Project: {GEE_PROJECT}")
+    print(f"State: {state} | GEE Project: {GEE_PROJECT or '(unset)'}")
     print("=" * 60)
 
     print("\nInitializing Earth Engine...")
-    ee.Initialize(project=GEE_PROJECT)
+    ee.Initialize(project=GEE_PROJECT or None)
     print("  OK")
 
     if district is None:

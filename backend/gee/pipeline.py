@@ -54,6 +54,12 @@ class GeeHazardPipeline:
         Assets stored as ImageCollections (GPM, CHIRPS, GFSM) are mosaiced
         over the region; single images are returned as-is.
         """
+        if not asset_id:
+            raise ValueError(
+                "A required Earth Engine asset is not configured. Set "
+                "GEE_ASSET_FLOOD_GFSM / GEE_ASSET_LANDSLIDE_ILSM (see "
+                "backend/config/.env.example)."
+            )
         if asset_id in COLLECTIONS:
             return ee.ImageCollection(asset_id).filterBounds(self.region).mosaic()
         return ee.Image(asset_id)
@@ -414,8 +420,8 @@ class GeeHazardPipeline:
         from shapely.ops import unary_union
         if not coast_geoms:
             print("  No coastline features in region. Skipping.")
-            self.rasters["coastal_score"] = np.zeros_like(ref)
-            return np.zeros_like(ref)
+            self.rasters["coastal_score"] = np.full_like(ref, np.nan, dtype=float)
+            return np.full_like(ref, np.nan, dtype=float)
         coast_union = unary_union(coast_geoms)
         villages = self.villages_gdf
         if villages is not None:
@@ -428,7 +434,7 @@ class GeeHazardPipeline:
             self.rasters["coastal_distances_m"] = dists
             self.rasters["coastal_score"] = np.array(coastal_scores)
         else:
-            self.rasters["coastal_score"] = np.zeros_like(ref)
+            self.rasters["coastal_score"] = np.full_like(ref, np.nan, dtype=float)
         print(f"  Coastal erosion computed for {self.config['state']}")
         return self.rasters["coastal_score"]
 

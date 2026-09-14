@@ -1,6 +1,7 @@
 // Hazard Intelligence Engine — Delhi static-data exports
-// Project: tejas-470510 | CRS: EPSG:4326 | target scale: 60 metres
-// Run this in https://code.earthengine.google.com and start the 33 Tasks.
+// CRS: EPSG:4326 | target scale: 60 metres
+// Run this in https://code.earthengine.google.com (using your own project) and
+// start the 33 Tasks.
 
 var DISTRICTS = {
   central: [77.167901, 28.571167, 77.303197, 28.788141],
@@ -20,8 +21,9 @@ var chirpsSource = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
   .filterDate('2023-01-01', '2025-12-31')
   .select('precipitation')
   .mean();
-var gfsmSource = ee.ImageCollection('projects/floodsus/assets/fsm_ei5').mosaic();
-var ilsmSource = ee.Image('projects/ee-nirdeshsharmanith1/assets/ILSM_probability');
+// Set these to the flood/landslide asset ids you host or subscribe to.
+var gfsmSource = ee.ImageCollection('YOUR_FLOOD_IMAGE_COLLECTION_ID').mosaic();
+var ilsmSource = ee.Image('YOUR_LANDSLIDE_IMAGE_ID');
 
 Object.keys(DISTRICTS).forEach(function(key) {
   var region = ee.Geometry.Rectangle(DISTRICTS[key]);

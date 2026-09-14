@@ -331,8 +331,8 @@ state-by-state (same code) and concatenate.
 ### Where each real layer comes from
 | Layer | Free download |
 |---|---|
-| Flood | GFSM `projects/floodsus/assets/fsm_ei5` (Earth Engine) |
-| Landslide | ILSM `projects/ee-nirdeshsharmanith1/assets/ILSM_probability` (EE) |
+| Flood | GFSM — set `GEE_ASSET_FLOOD_GFSM` to the image collection id (Earth Engine) |
+| Landslide | ILSM — set `GEE_ASSET_LANDSLIDE_ILSM` to the image id (EE) |
 | DEM/slope | Copernicus 30 m on AWS (s3://copernicus-dem-30m) |
 | Drainage | HydroSHEDS free tiles |
 | Rainfall extremes | CHIRPS or IMD gridded data |

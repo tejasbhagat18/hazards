@@ -29,7 +29,7 @@ import geopandas as gpd
 
 from backend.config.settings import PROCESSED_DIR
 
-VILLAGE_SHP_DIR = Path(os.getenv("VILLAGE_SHP_DIR", r"C:\Users\ROHAN\Downloads\indian_village_boundries"))
+VILLAGE_SHP_DIR = Path(os.getenv("VILLAGE_SHP_DIR", str(Path.home() / "Downloads" / "indian_village_boundries")))
 
 # Defaults for the two demo districts (used when no CLI args given)
 DEFAULTS = [

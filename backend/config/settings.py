@@ -9,12 +9,12 @@ PROCESSED_DIR = DATA_DIR / "processed"
 SAMPLE_DIR = DATA_DIR / "sample"
 OUTPUT_DIR = DATA_DIR / "output"
 GEE_OUTPUT_DIR = DATA_DIR / "gee_output"
-GEE_ASSET_PREFIX = os.getenv("GEE_ASSET_PREFIX", "projects/tejas-470510/assets/sih")
+GEE_ASSET_PREFIX = os.getenv("GEE_ASSET_PREFIX", "")
 
 for d in (DATA_DIR, RAW_DIR, PROCESSED_DIR, SAMPLE_DIR, OUTPUT_DIR, GEE_OUTPUT_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
-GEE_PROJECT = os.getenv("GEE_PROJECT", "tejas-470510")
+GEE_PROJECT = os.getenv("GEE_PROJECT", "")
 GEE_CREDENTIALS = os.getenv("GEE_CREDENTIALS", None)
 USE_GEE = os.getenv("USE_GEE", "false").lower() == "true"
 
